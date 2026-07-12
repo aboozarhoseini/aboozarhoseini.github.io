@@ -13,6 +13,7 @@ Hi, I'm Aboozar Hoseini. I'm passionate about technology, programming, and shari
 - Web Development
 - Programming
 - Technical Writing
+- Technical Testing
 
 ## Contact
 
