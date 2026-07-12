@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Write-Up Title</title>
+    <style>
+        /* --- Reset & Base Styles (Inspired by the original) --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f6f8;
+            color: #111827;
+            line-height: 1.7;
+            padding: 2rem 1.5rem;
+        }
+
+        .container {
+            max-width: 750px;
+            margin: 0 auto;
+            background: white;
+            padding: 3rem 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+        }
+
+        /* --- Typography --- */
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            margin-bottom: 0.25rem;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: #4b5563;
+            font-weight: 400;
+            margin-top: 0;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-top: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            margin-bottom: 1.2rem;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+            border-bottom: 1px dotted #93c5fd;
+        }
+
+        a:hover {
+            border-bottom: 1px solid #2563eb;
+        }
+
+        /* --- Code & Preformatted Text --- */
+        pre,
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.2rem 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 1.5rem 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .code-block {
+            background: #f1f5f9;
+            color: #1e293b;
+            border-left: 4px solid #2563eb;
+        }
+
+        code {
+            font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+            background: #f1f5f9;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #b91c1c;
+        }
+
+        /* --- Special UI Elements from the original --- */
+        .badge-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem 2rem;
+            background: #f8fafc;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .badge-item {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .badge-item .label {
+            font-weight: 600;
+            color: #475569;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-item .value {
+            font-weight: 700;
+        }
+
+        .badge-item .value.medium {
+            color: #d97706;
+        }
+
+        .badge-item .value.time {
+            color: #2563eb;
+        }
+
+        .badge-item .value.weaknesses {
+            color: #7c3aed;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #1e293b;
+            color: white;
+            font-weight: 700;
+            width: 28px;
+            height: 28px;
+            text-align: center;
+            line-height: 28px;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            margin-right: 0.75rem;
+        }
+
+        .fix-block {
+            background: #ecfdf5;
+            border-left: 5px solid #059669;
+            padding: 1rem 1.5rem;
+            border-radius: 0 8px 8px 0;
+            margin: 1.5rem 0;
+        }
+
+        .flag-block {
+            background: #fefce8;
+            border: 2px dashed #ca8a04;
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 12px;
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #854d0e;
+            margin: 2rem 0;
+            letter-spacing: 0.02em;
+        }
+
+        hr {
+            border: 0;
+            border-top: 2px solid #e5e7eb;
+            margin: 2.5rem 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2.2rem;
+            }
+
+            .badge-group {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <h1>Your Main Title</h1>
+        <p class="subtitle">Your subtitle or tagline here.</p>
+
+        <!-- BADGE GROUP (Meta Info) -->
+        <div class="badge-group">
+            <div class="badge-item"><span class="label">Vulnerability Type</span><span class="value">CSRF</span></div>
+            <div class="badge-item"><span class="label">Severity</span><span class="value medium">Medium</span></div>
+            <div class="badge-item"><span class="label">Time to Flag</span><span class="value time">&lt;30s</span></div>
+            <div class="badge-item"><span class="label">Weaknesses Chained</span><span class="value weaknesses">3</span>
+            </div>
+        </div>
+
+        <!-- CONTENT (WRITE-UP) -->
+        <article>
+            <h2>Context</h2>
+            <p><strong>What is Your Project?</strong> Describe your application or project here. This is where you set
+                the scene.</p>
+            <p>Explain the goal. For example: "There is an admin account. The flag is in the vault..."</p>
+
+            <h2>Root Cause</h2>
+            <p>Break down the issues. You can use <code>&lt;h3&gt;</code> for sub-points.</p>
+
+            <h3>1. SameSite=None on Session Cookie</h3>
+            <p>Describe the first vulnerability. Use <code>inline code</code> for technical terms.</p>
+
+            <h3>2. No CSRF Token</h3>
+            <p>Describe the second vulnerability.</p>
+
+            <h3>3. URL Validator Issues</h3>
+            <p>Describe the third vulnerability.</p>
+
+            <!-- CODE BLOCKS -->
+            <p>You can include code blocks like this:</p>
+            <div class="code-block">
+                # Example of a blocklist bypass<br>
+                https://techiesiddhi.github.io/poc/leakyjar.intigriti.io/
+            </div>
+            <pre>
+            // Or a raw preformatted block
+            POST /share HTTP/1.1
+            Host: leakyjar.intigriti.io
+            Cookie: session=&lt;admin_session&gt;
+        </pre>
+
+            <h2>Exploitation</h2>
+            <p>Walk through the attack steps. You can use numbered paragraphs or custom step elements.</p>
+            <p><span class="step-number">1</span> <strong>Register Attacker Account</strong> - Explain step one.</p>
+            <p><span class="step-number">2</span> <strong>Host CSRF Page</strong> - Explain step two.</p>
+            <p><span class="step-number">3</span> <strong>Submit URL to Bot</strong> - Explain step three.</p>
+
+            <h2>Result</h2>
+            <p>Describe the outcome. Then showcase the flag.</p>
+            <div class="flag-block">
+                Your Flag / Secret Here
+            </div>
+
+            <h2>Remediation</h2>
+            <div class="fix-block">
+                <strong>Fix 1: SameSite=Lax</strong><br>
+                Set SameSite=Lax on session cookies to block CSRF.
+            </div>
+            <div class="fix-block">
+                <strong>Fix 2: CSRF Tokens</strong><br>
+                Implement anti-CSRF tokens on all state-changing forms.
+            </div>
+        </article>
+        <!-- END CONTENT -->
+    </div>
+</body>
+
+</html>
